@@ -7,10 +7,11 @@ import (
 	"github.com/opendatahub-io/opendatahub-operator/v2/pkg/deploy"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
+var (
 	ComponentName = "trustyai"
 	Path          = deploy.DefaultManifestPath + "/trustyai-service-operator/base"
 )
@@ -24,6 +25,27 @@ var imageParamMap = map[string]string{
 
 type TrustyAI struct {
 	components.Component `json:""`
+}
+
+func (m *TrustyAI) GetComponentDevFlags() components.DevFlags {
+	return m.DevFlags
+}
+
+func (m *TrustyAI) OverrideManifests(_ string) error {
+	// If devflags are set, update default manifests path
+	if len(m.DevFlags.Manifests) != 0 {
+		manifestConfig := m.DevFlags.Manifests[0]
+		if err := deploy.DownloadManifests(ComponentName, manifestConfig); err != nil {
+			return err
+		}
+		// If overlay is defined, update paths
+		defaultKustomizePath := "operator/base"
+		if manifestConfig.SourcePath != "" {
+			defaultKustomizePath = manifestConfig.SourcePath
+		}
+		Path = filepath.Join(deploy.DefaultManifestPath, ComponentName, defaultKustomizePath)
+	}
+	return nil
 }
 
 func (m *TrustyAI) GetComponentName() string {
